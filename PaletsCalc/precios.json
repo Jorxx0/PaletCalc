@@ -1,0 +1,11 @@
+[
+    { "cliente": "Almacén", "palet": "Europeo", "precio": 6 },
+    { "cliente": "Almacén", "palet": "Color", "precio": 3 },
+    { "cliente": "Almacén", "palet": "80 Fuerte", "precio": 1.5 },
+    { "cliente": "Almacén", "palet": "80 Fino", "precio": 1.5 },
+    { "cliente": "Almacén", "palet": "Metro Fuerte", "precio": 1 },
+    { "cliente": "Almacén", "palet": "80 X 60", "precio": 0.5 },
+    { "cliente": "Almacén", "palet": "Mini", "precio": 1 },
+    { "cliente": "Almacén", "palet": "Fuera Medida", "precio": 0.5 },
+    { "cliente": "Otro Cliente", "palet": "Paleo Europeo", "precio": 7 }
+]
