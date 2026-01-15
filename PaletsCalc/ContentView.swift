@@ -181,12 +181,59 @@ struct ListadoAlbaranesView: View {
     }
 }
 
+struct ListadoClientesView: View {
+    @Binding var tablaPrecios: [Precio]
+    @Binding var clienteSeleccionado: String
+    
+    private var clientesUnicos: [String] {
+        Array(Set(tablaPrecios.map { $0.cliente })).sorted()
+    }
+    
+    private func paletsOrdenados(cliente: String) -> [String] {
+        var seen: Set<String> = []
+        var ordered: [String] = []
+        for precio in tablaPrecios where precio.cliente == cliente {
+            if !seen.contains(precio.palet) {
+                ordered.append(precio.palet)
+                seen.insert(precio.palet)
+            }
+        }
+        return ordered
+    }
+    
+    var body: some View {
+        List {
+            ForEach(clientesUnicos, id: \.self) { cliente in
+                NavigationLink(destination: EditarClienteView(tablaPrecios: $tablaPrecios, clienteSeleccionado: $clienteSeleccionado, cliente: cliente, paletsUnicos: paletsOrdenados(cliente: cliente))) {
+                    Text(cliente)
+                }
+            }
+            .onDelete(perform: eliminarCliente)
+        }
+        .navigationTitle("Listado de Clientes")
+    }
+    
+    // Elimina todas las entradas de tablaPrecios para el cliente seleccionado en la lista
+    func eliminarCliente(at offsets: IndexSet) {
+        let clientesAEliminar = offsets.map { clientesUnicos[$0] }
+        for cliente in clientesAEliminar {
+            tablaPrecios.removeAll(where: { $0.cliente == cliente })
+            // Si el cliente eliminado estaba seleccionado, limpiar selección
+            if clienteSeleccionado == cliente {
+                clienteSeleccionado = tablaPrecios.map { $0.cliente }.first ?? ""
+            }
+        }
+    }
+}
+
 struct ContentView: View {
     
     @State private var tablaPrecios: [Precio] = []
     @State private var clienteSeleccionado = ""
     @State private var lineas: [LineaAlbaran] = []
     @State private var mostrarConfirmacion = false
+    @State private var mostrarCrearCliente = false
+    @State private var mostrarListadoClientes = false
     
     private var clientesUnicos: [String] {
         Array(Set(tablaPrecios.map { $0.cliente })).sorted()
@@ -222,6 +269,12 @@ struct ContentView: View {
                     .pickerStyle(MenuPickerStyle())
                     .onChange(of: clienteSeleccionado) { _, _ in
                         inicializarLineas()
+                    }
+                    Button("Crear Cliente") {
+                        mostrarCrearCliente = true
+                    }
+                    Button("Editar Cliente") {
+                        mostrarListadoClientes = true
                     }
                 }
                 
@@ -262,6 +315,14 @@ struct ContentView: View {
                 Button("OK", role: .cancel) {}
             }
             .onAppear { cargarPrecios() }
+            .sheet(isPresented: $mostrarCrearCliente) {
+                CrearClienteView(tablaPrecios: $tablaPrecios, clienteSeleccionado: $clienteSeleccionado, paletsUnicos: paletsOrdenados)
+            }
+            .sheet(isPresented: $mostrarListadoClientes) {
+                NavigationView {
+                    ListadoClientesView(tablaPrecios: $tablaPrecios, clienteSeleccionado: $clienteSeleccionado)
+                }
+            }
         }
     }
     
@@ -332,5 +393,150 @@ struct ContentView: View {
         } catch {
             print("Error cargando precios: \(error)")
         }
+    }
+}
+
+struct CrearClienteView: View {
+    @Binding var tablaPrecios: [Precio]
+    @Binding var clienteSeleccionado: String
+    let paletsUnicos: [String]
+    @Environment(\.presentationMode) private var presentationMode
+    
+    @State private var nuevoCliente: String = ""
+    @State private var preciosPalets: [String: String] = [:]
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Nuevo Cliente")) {
+                    TextField("Nombre del cliente", text: $nuevoCliente)
+                }
+                if !paletsUnicos.isEmpty {
+                    Section(header: Text("Precios por Palet")) {
+                        ForEach(paletsUnicos, id: \.self) { palet in
+                            HStack {
+                                Text(palet)
+                                Spacer()
+                                TextField("Precio", text: Binding(
+                                    get: { preciosPalets[palet] ?? "" },
+                                    set: { preciosPalets[palet] = $0 }
+                                ))
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 100)
+                            }
+                        }
+                    }
+                }
+                Section {
+                    Button("Agregar Cliente") {
+                        agregarCliente()
+                    }
+                    .disabled(nuevoCliente.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .navigationTitle("Crear Cliente")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+            }
+        }
+    }
+    
+    func agregarCliente() {
+        let clienteTrimmed = nuevoCliente.trimmingCharacters(in: .whitespaces)
+        guard !clienteTrimmed.isEmpty else { return }
+        
+        // Por cada palet, obtener el precio introducido o usar 0
+        for palet in paletsUnicos {
+            let precioString = preciosPalets[palet]?.replacingOccurrences(of: ",", with: ".") ?? ""
+            let precio = Double(precioString) ?? 0
+            let nuevoPrecio = Precio(cliente: clienteTrimmed, palet: palet, precio: precio)
+            tablaPrecios.append(nuevoPrecio)
+        }
+        clienteSeleccionado = clienteTrimmed
+        presentationMode.wrappedValue.dismiss()
+    }
+}
+
+struct EditarClienteView: View {
+    @Binding var tablaPrecios: [Precio]
+    @Binding var clienteSeleccionado: String
+    let cliente: String
+    let paletsUnicos: [String]
+    @Environment(\.presentationMode) private var presentationMode
+    
+    @State private var nombreCliente: String = ""
+    @State private var preciosPalets: [String: String] = [:]
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Editar Cliente")) {
+                    TextField("Nombre del cliente", text: $nombreCliente)
+                }
+                
+                Section(header: Text("Precios por Palet")) {
+                    ForEach(paletsUnicos, id: \.self) { palet in
+                        HStack {
+                            Text(palet)
+                            Spacer()
+                            TextField("Precio", text: Binding(
+                                get: { preciosPalets[palet] ?? "" },
+                                set: { preciosPalets[palet] = $0 }
+                            ))
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 100)
+                        }
+                    }
+                }
+                
+                Section {
+                    Button("Guardar Cambios") {
+                        guardarCambios()
+                    }
+                    .disabled(nombreCliente.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .navigationTitle("Editar Cliente")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { presentationMode.wrappedValue.dismiss() }
+                }
+            }
+            .onAppear {
+                nombreCliente = cliente
+                for palet in paletsUnicos {
+                    if let precio = tablaPrecios.first(where: { $0.cliente == cliente && $0.palet == palet })?.precio {
+                        preciosPalets[palet] = String(format: "%.2f", precio)
+                    } else {
+                        preciosPalets[palet] = ""
+                    }
+                }
+            }
+        }
+    }
+    
+    func guardarCambios() {
+        let clienteTrimmed = nombreCliente.trimmingCharacters(in: .whitespaces)
+        guard !clienteTrimmed.isEmpty else { return }
+        
+        // Eliminar precios antiguos del cliente
+        tablaPrecios.removeAll(where: { $0.cliente == cliente })
+        
+        // Guardar precios nuevos
+        for palet in paletsUnicos {
+            let precioString = preciosPalets[palet]?.replacingOccurrences(of: ",", with: ".") ?? ""
+            let precio = Double(precioString) ?? 0
+            let nuevoPrecio = Precio(cliente: clienteTrimmed, palet: palet, precio: precio)
+            tablaPrecios.append(nuevoPrecio)
+        }
+        
+        clienteSeleccionado = clienteTrimmed
+        presentationMode.wrappedValue.dismiss()
     }
 }
