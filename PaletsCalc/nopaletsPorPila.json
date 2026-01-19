@@ -1,0 +1,32 @@
+{
+  "Pilas Merida": {
+    "Blanco": 18,
+    "Semi": 18,
+    "Negro": 18,
+    "80 Fuerte": 18,
+    "80 Fino": 19,
+    "Azul": 18,
+    "Rojo": 18,
+    "Marron": 18,
+    "Euro Roto": 21,
+    "80 Roto": 21,
+    "Metro": 18,
+    "80 x 60": 50,
+    "80 x 60 Roto": 50
+  },
+  "Pilas Badajoz": {
+    "Blanco": 17,
+    "Semi": 17,
+    "Negro": 17,
+    "80 Fuerte": 17,
+    "80 Fino": 17,
+    "Azul": 17,
+    "Rojo": 17,
+    "Marron": 17,
+    "Euro Roto": 19,
+    "80 Roto": 19,
+    "Metro": 17,
+    "80 x 60": 50,
+    "80 x 60 Roto": 50
+  }
+}
